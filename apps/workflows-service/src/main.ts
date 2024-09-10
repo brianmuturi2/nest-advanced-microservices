@@ -10,7 +10,8 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.NATS,
     options: {
-      servers: process.env.NATS_URL
+      servers: process.env.NATS_URL,
+      queue: 'workflows-service'
     },
   },
   {inheritAppConfig: true});
