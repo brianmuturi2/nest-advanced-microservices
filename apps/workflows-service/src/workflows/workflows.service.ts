@@ -1,26 +1,51 @@
-import { Injectable } from '@nestjs/common';
-import { CreateWorkflowDto } from './dto/create-workflow.dto';
-import { UpdateWorkflowDto } from './dto/update-workflow.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Workflow } from './entities/workflow.entity';
+import { Repository } from 'typeorm';
+import { CreateWorkflowDto, UpdateWorkflowDto } from '@app/workflows';
 
 @Injectable()
 export class WorkflowsService {
-  create(createWorkflowDto: CreateWorkflowDto) {
-    return 'This action adds a new workflow';
+
+  constructor(
+    @InjectRepository(Workflow)
+    private readonly workflowsRepository: Repository<Workflow>
+  ) {}
+
+  async create(createWorkflowDto: CreateWorkflowDto) {
+    const workflow = this.workflowsRepository.create({
+      ...createWorkflowDto
+    });
+    const newWorkflowEntity = await this.workflowsRepository.save(workflow);
+    return newWorkflowEntity;
   }
 
   findAll() {
-    return `This action returns all workflows`;
+    return this.workflowsRepository.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} workflow`;
+  async findOne(id: number) {
+    const workflow = await this.workflowsRepository.findOne({where: {id}});
+    if (!workflow) {
+      throw new NotFoundException(`Workflow #${id} does not exist`);
+    }
+    return workflow;
   }
 
-  update(id: number, updateWorkflowDto: UpdateWorkflowDto) {
-    return `This action updates a #${id} workflow`;
+  async update(id: number, updateWorkflowDto: UpdateWorkflowDto) {
+    const workflow = await this.workflowsRepository.preload({
+      id: +id,
+      ...updateWorkflowDto
+    });
+
+    if (!workflow) {
+      throw new NotFoundException(`Workflow #${id} does not exist`);
+    }
+    return this.workflowsRepository.save(workflow);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} workflow`;
+  async remove(id: number) {
+    const workflow = await this.findOne(id);
+    return this.workflowsRepository.remove(workflow);
   }
 }
