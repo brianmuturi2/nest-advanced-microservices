@@ -29,6 +29,12 @@
       ],
       "@app/outbox/*": [
         "libs/outbox/src/*"
+      ],
+      "@app/inbox": [
+        "libs/inbox/src"
+      ],
+      "@app/inbox/*": [
+        "libs/inbox/src/*"
       ]
     }
   }
