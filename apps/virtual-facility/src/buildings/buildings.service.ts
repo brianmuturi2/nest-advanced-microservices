@@ -3,11 +3,12 @@ import { CreateBuildingDto } from './dto/create-building.dto';
 import { UpdateBuildingDto } from './dto/update-building.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Building } from './entities/building.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { WORKFLOWS_SERVICE } from '../constants';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
 import { CreateWorkflowDto } from '@app/workflows';
+import { Outbox } from '@app/outbox/entities/outbox.entity';
 
 @Injectable()
 export class BuildingsService {
@@ -16,18 +17,42 @@ export class BuildingsService {
     @InjectRepository(Building)
     private readonly buildingsRepository: Repository<Building>,
     @Inject(WORKFLOWS_SERVICE)
-    private readonly workflowsService: ClientProxy
+    private readonly workflowsService: ClientProxy,
+    private readonly dataSource: DataSource
   ) {}
 
   async create(createBuildingDto: CreateBuildingDto) {
-    const building = this.buildingsRepository.create({
-      ...createBuildingDto
-    });
-    const newBuildingEntity = await this.buildingsRepository.save(building);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // create a workflow for the new building
-    await this.createWorkflow(newBuildingEntity.id);
-    return newBuildingEntity;
+    const buildingsRepository = queryRunner.manager.getRepository(Building);
+    const outboxRepository = queryRunner.manager.getRepository(Outbox);
+
+    try {
+      const building = buildingsRepository.create({
+        ...createBuildingDto
+      });
+      const newBuildingEntity = await buildingsRepository.save(building);
+  
+      await outboxRepository.save({
+        type: 'workflows.create',
+        payload: {
+          name: 'My workflow',
+          buildingId: building.id
+        },
+        target: WORKFLOWS_SERVICE.description
+      });
+
+      await queryRunner.commitTransaction();
+      
+      return newBuildingEntity;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   findAll() {
