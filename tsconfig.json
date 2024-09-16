@@ -35,6 +35,12 @@
       ],
       "@app/inbox/*": [
         "libs/inbox/src/*"
+      ],
+      "@app/tracing": [
+        "libs/tracing/src"
+      ],
+      "@app/tracing/*": [
+        "libs/tracing/src/*"
       ]
     }
   }
